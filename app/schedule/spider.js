@@ -12,11 +12,10 @@ class UpdateCache extends Subscription {
   // subscribe 是真正定时任务执行时被运行的函数
   async subscribe() {
     const now = new Date();
-    this.ctx.service.ranks.list(now, '女童连衣裙', 0, 1000);
-    const res = await this.ctx.curl('http://www.api.com/cache', {
-      dataType: 'json',
-    });
-    this.ctx.app.cache = res.data;
+    await this.ctx.service.ranks.list(now, '女童连衣裙', 0, 1000);
+    await this.ctx.service.ranks.list(now, '女童连衣裙', 1, 1000);
+    await this.ctx.service.ranks.list(now, '女童连衣裙夏', 0, 1000);
+    await this.ctx.service.ranks.list(now, '女童连衣裙夏', 1, 1000);
   }
 }
 

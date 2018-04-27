@@ -20,17 +20,18 @@ class RanksService extends Service {
     }
     // 请求接口数据并返回
     console.log('get api...', filter);
-    result = await this.getAipData(filter, count);
+    result = await this.getAipData(filter, count, date);
     return result;
   }
 
-  async getAipData(filter, count = 1000) {
+  async getAipData(filter, count = 1000, date = new Date()) {
     const { sort, keyword, id } = filter;
     const { serverUrl } = this.config.jd;
     const originList = [];
+    const logDir = moment(date).format('YYYYMMDD');
     for (let i = 0; i < Math.ceil(count / 10); i++) {
       const page = i + 1;
-      const file = `./data/logs/${keyword}-${sort}-${id}-${page}.json`;
+      const file = `./data/logs/${logDir}/${keyword}-${sort}-${id}-${page}.json`;
       let data = this.readLog(file);
       if (!data) {
         const response = await this.ctx.curl(`${serverUrl}/ware/searchList.action`, {
@@ -105,9 +106,7 @@ class RanksService extends Service {
   createFile(fileStr) {
     const absFilePath = path.resolve(fileStr);
     const dir = path.dirname(absFilePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir);
-    }
+    this.mkdirsSync(dir);
     if (!fs.existsSync(absFilePath)) {
       fs.writeFileSync(absFilePath, '');
     }
@@ -122,6 +121,18 @@ class RanksService extends Service {
       }
     }
     return [];
+  }
+
+  //递归创建目录 同步方法
+  mkdirsSync(dirname) {
+    if (fs.existsSync(dirname)) {
+      return true;
+    } else {
+      if (this.mkdirsSync(path.dirname(dirname))) {
+        fs.mkdirSync(dirname);
+        return true;
+      }
+    }
   }
 }
 
