@@ -1,6 +1,6 @@
 const Service = require('egg').Service;
-var fs = require('fs');
-var path = require('path');
+const fs = require('fs');
+const path = require('path');
 const low = require('lowdb');
 const moment = require('moment');
 const FileSync = require('lowdb/adapters/FileSync');
@@ -30,19 +30,27 @@ class RanksService extends Service {
     const originList = [];
     for (let i = 0; i < Math.ceil(count / 10); i++) {
       const page = i + 1;
-      const { data } = await this.ctx.curl(`${serverUrl}/ware/searchList.action`, {
-        method: 'POST',
-        data: {
-          _format_: 'json',
-          sort: sort,
-          page: page,
-          keyword: keyword
-        },
-        dataType: 'json',
-      });
+      const file = `./data/logs/${keyword}-${sort}-${id}-${page}.json`;
+      let data = this.readLog(file);
+      if (!data) {
+        const response = await this.ctx.curl(`${serverUrl}/ware/searchList.action`, {
+          method: 'POST',
+          data: {
+            _format_: 'json',
+            sort: sort,
+            page: page,
+            keyword: keyword
+          },
+          dataType: 'json',
+        });
+        data = response.data;
+        // 将解新后日志写入文件
+        this.writeLog(file, data);
+      }
+      // 解析出需要的内容
       const list = this.parseList(data);
       let rank = 1;
-      list.map((item, index) => {
+      list.map((item) => {
         // 有曝光url的为广告，排除
         if (!item.exposalUrl) {
           originList.push(Object.assign(item, { page: page, pageRank: rank }));
@@ -51,13 +59,11 @@ class RanksService extends Service {
       });
       console.log(`page:${page}, originList.length:${originList.length}`);
     }
-    // 将原始日志写入文件
-    this.writeLog(`./data/logs/${keyword}-${sort}-${id}.json`, originList);
     // 取得db
     const db = this.getDB();
     // 对原始数据进行处理，拿到最终想要的结果，写入db并返回
     const result = [];
-    originList.map((item, index) => {
+    originList.map((item) => {
       // 输出结果用
       const a = {
         page: item.page,
@@ -82,6 +88,14 @@ class RanksService extends Service {
     const db = low(adapter);
     db.defaults({ rankItem: [] }).write();
     return db;
+  }
+
+  readLog(fileStr) {
+    const absFilePath = path.resolve(fileStr);
+    if (fs.existsSync(absFilePath)) {
+      const content = fs.readFileSync(fileStr, 'utf-8');
+      if (content) return JSON.parse(content);
+    }
   }
 
   writeLog(fileStr, data) {
