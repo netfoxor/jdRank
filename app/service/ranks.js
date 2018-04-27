@@ -1,49 +1,103 @@
 const Service = require('egg').Service;
 var fs = require('fs');
+var path = require('path');
 const low = require('lowdb');
 const moment = require('moment');
 const FileSync = require('lowdb/adapters/FileSync');
 
 class RanksService extends Service {
-  async list(keyword = '', sort = 0, page = 1) {
-    if (!fs.existsSync('./data/')) {
-      fs.mkdirSync('./data/');
+  async list(date, keyword = '', sort = 0, count = 1000) {
+    // 从db或接口读取数据
+    const id = moment(date).format('YYYYMMDDHH');
+    const filter = { id, keyword, sort };
+    // 读取db
+    const db = this.getDB();
+    let result = db.get('rankItem').filter(filter).value();
+    // 如果db有数据，直接返回
+    if (result && result.length > 0) {
+      console.log('get db...', filter);
+      return result;
     }
-    if (!fs.existsSync('./data/db.json')) {
-      fs.writeFileSync('./data/db.json', '');
+    // 请求接口数据并返回
+    console.log('get api...', filter);
+    result = await this.getAipData(filter, count);
+    return result;
+  }
+
+  async getAipData(filter, count = 1000) {
+    const { sort, keyword, id } = filter;
+    const { serverUrl } = this.config.jd;
+    const originList = [];
+    for (let i = 0; i < Math.ceil(count / 10); i++) {
+      const page = i + 1;
+      const { data } = await this.ctx.curl(`${serverUrl}/ware/searchList.action`, {
+        method: 'POST',
+        data: {
+          _format_: 'json',
+          sort: sort,
+          page: page,
+          keyword: keyword
+        },
+        dataType: 'json',
+      });
+      const list = this.parseList(data);
+      let rank = 1;
+      list.map((item, index) => {
+        // 有曝光url的为广告，排除
+        if (!item.exposalUrl) {
+          originList.push(Object.assign(item, { page: page, pageRank: rank }));
+          rank++;
+        }
+      });
+      console.log(`page:${page}, originList.length:${originList.length}`);
     }
+    // 将原始日志写入文件
+    this.writeLog(`./data/logs/${keyword}-${sort}-${id}.json`, originList);
+    // 取得db
+    const db = this.getDB();
+    // 对原始数据进行处理，拿到最终想要的结果，写入db并返回
+    const result = [];
+    originList.map((item, index) => {
+      // 输出结果用
+      const a = {
+        page: item.page,
+        pageRank: item.pageRank,
+        skuId: item.wareId,
+        title: item.wname,
+        totalCount: item.totalCount,
+        imageUrl: item.imageurl,
+        price: item.jdPrice
+      };
+      result.push(a);
+      // db存储用
+      const b = Object.assign({}, a, filter);
+      db.get('rankItem').push(b).write();
+    });
+    return result;
+  }
+
+  getDB() {
+    this.createFile('./data/db.json');
     const adapter = new FileSync('./data/db.json');
     const db = low(adapter);
     db.defaults({ rankItem: [] }).write();
-    const id = moment().format('YYYYMMDDHH');
-    const where = { id, keyword, sort, page };
-    let result = db.get('rankItem').filter(where).value();
-    if (result && result.length > 0) {
-      console.log('get db...', where);
-      return result;
+    return db;
+  }
+
+  writeLog(fileStr, data) {
+    fs.writeFileSync(this.createFile(fileStr), JSON.stringify(data));
+  }
+
+  createFile(fileStr) {
+    const absFilePath = path.resolve(fileStr);
+    const dir = path.dirname(absFilePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir);
     }
-    console.log('get jd api...', where);
-    const { serverUrl } = this.config.jd;
-    const { data } = await this.ctx.curl(`${serverUrl}/ware/searchList.action`, {
-      method: 'POST',
-      data: {
-        _format_: 'json',
-        sort: sort,
-        page: page,
-        keyword: keyword
-      },
-      dataType: 'json',
-    });
-    const list = this.parseList(data);
-    const tmpResult = [];
-    list.map((item) => {
-      const a = { skuId: item.wareId, title: item.wname, totalCount: item.totalCount, imageUrl: item.imageurl, price: item.jdPrice };
-      const b = Object.assign({}, a, where);
-      tmpResult.push(a);
-      db.get('rankItem').push(b).write();
-    });
-    result = tmpResult;
-    return result;
+    if (!fs.existsSync(absFilePath)) {
+      fs.writeFileSync(absFilePath, '');
+    }
+    return absFilePath;
   }
 
   parseList(data) {

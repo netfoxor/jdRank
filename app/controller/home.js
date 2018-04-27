@@ -10,11 +10,7 @@ class HomeController extends Controller {
       ctx.body = '非法参数';
       return;
     }
-    let result = [];
-    for (let i = 0; i < 20; i++) {
-      const tmpData = await ctx.service.ranks.list(keyword, sort, i + 1);
-      result = result.concat(tmpData);
-    }
+    const result = await ctx.service.ranks.list(new Date(), keyword, sort, 1000);
     ctx.body = result;
   }
 }
