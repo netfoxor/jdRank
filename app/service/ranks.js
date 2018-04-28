@@ -7,36 +7,40 @@ const FileSync = require('lowdb/adapters/FileSync');
 
 class RanksService extends Service {
   async list(date, keyword = '', sort = 0, count = 1000) {
+    const ctx = this;
     // 从db或接口读取数据
     const id = moment(date).format('YYYYMMDDHH');
     const filter = { id, keyword, sort };
-    // 读取db
-    const db = this.getDB();
-    let result = db.get('rankItem').filter(filter).value();
-    // 如果db有数据，直接返回
-    if (result && result.length > 0) {
-      console.log('get db...', filter);
-      return result;
-    }
-    // 在当前小时内，请求接口数据并返回
-    if (moment(new Date()).format('YYYYMMDDHH') === id) {
-      console.log('get api...', filter);
-      result = await this.getAipData(filter, count, date);
-      return result;
-    }
-    return [];
+    let result;
+    // // 读取db
+    // const db = this.getDB();
+    // result = db.get('rankItem').filter(filter).value();
+    // // 如果db有数据，直接返回
+    // if (result && result.length > 0) {
+    //   ctx.logger.info(`get db, filter:${JSON.stringify(filter)}`);
+    //   return result;
+    // }
+    ctx.logger.info(`get api or log file, filter:${JSON.stringify(filter)}`);
+    result = await this.getAipData(filter, count, date);
+    return result;
   }
 
   async getAipData(filter, count = 1000, date = new Date()) {
+    const ctx = this;
     const { sort, keyword, id } = filter;
     const { serverUrl } = this.config.jd;
     const originList = [];
-    const logDir = moment(date).format('YYYYMMDD');
+    const logDir = `${keyword}/${moment(date).format('YYYYMMDD')}`;
     for (let i = 0; i < Math.ceil(count / 10); i++) {
       const page = i + 1;
       const file = `./data/logs/${logDir}/${keyword}-${sort}-${id}-${page}.json`;
       let data = this.readLog(file);
+      // 本地没有取得数据，需要请求api
       if (!data) {
+        // 如果非当前时间段内，则跳过
+        if (moment(new Date()).format('YYYYMMDDHH') !== id) {
+          continue;
+        }
         const url = `${serverUrl}/ware/searchList.action`;
         const params = {
           _format_: 'json',
@@ -47,7 +51,7 @@ class RanksService extends Service {
         data = await this.request(url, params);
         // 将解新后日志写入文件
         if (!data) {
-          console.log('获取数据失败，跳过', url, JSON.stringify(params));
+          ctx.logger.warn(`获取数据失败，跳过, url:${url}, data:${JSON.stringify(data)}`);
           continue;
         }
         this.writeLog(file, data);
@@ -62,7 +66,7 @@ class RanksService extends Service {
           rank++;
         }
       });
-      console.log(`page:${page}, originList.length:${originList.length}`);
+      ctx.logger.info(`page:${page}, originList.length:${originList.length}`);
     }
     // 取得db
     const db = this.getDB();
@@ -79,10 +83,9 @@ class RanksService extends Service {
         imageUrl: item.imageurl,
         price: item.jdPrice
       };
-      result.push(a);
-      // db存储用
       const b = Object.assign({}, a, filter);
-      db.get('rankItem').push(b).write();
+      result.push(b);
+      // db.get('rankItem').push(b).write();
     });
     return result;
   }
@@ -104,11 +107,12 @@ class RanksService extends Service {
   }
 
   async request(url, data, retryTimes = 1) {
+    const ctx = this;
     if (retryTimes > 3) {
       return null;
     }
     if (retryTimes > 1) {
-      console.log('重试中...', url, JSON.stringify(data), retryTimes);
+      ctx.logger.warn(`重试中, url:${url}, data:${JSON.stringify(data)}, retryTimes:${retryTimes}`);
     }
     let response = null;
     try {
@@ -118,7 +122,7 @@ class RanksService extends Service {
         dataType: 'json',
       });
     } catch (e) {
-      console.log('请求出错了', e);
+      ctx.logger.error(new Error(`请求出错了, url:${url}, data:${JSON.stringify(data)}, retryTimes:${retryTimes}`));
     }
     if (!response || response.status !== 200) {
       return await this.request(url, data, ++retryTimes);
