@@ -30,11 +30,20 @@ class RanksService extends Service {
     const { sort, keyword, id } = filter;
     const { serverUrl } = this.config.jd;
     const originList = [];
-    const logDir = `${keyword}/${moment(date).format('YYYYMMDD')}`;
+    const logDir = `${keyword}/${moment(date).format('YYYYMMDDHH')}`;
     for (let i = 0; i < Math.ceil(count / 10); i++) {
       const page = i + 1;
       const file = `./data/logs/${logDir}/${keyword}-${sort}-${id}-${page}.json`;
       let data = this.readLog(file);
+      // 迁移数据
+      if (!data) {
+        const logDirOld = `${keyword}/${moment(date).format('YYYYMMDD')}`;
+        const fileOld = `./data/logs/${logDirOld}/${keyword}-${sort}-${id}-${page}.json`;
+        data = this.readLog(fileOld);
+        if (data) {
+          this.writeLog(file, data);
+        }
+      }
       // 本地没有取得数据，需要请求api
       if (!data) {
         // 如果非当前时间段内，则跳过

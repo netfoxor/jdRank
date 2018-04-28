@@ -5,7 +5,7 @@ const moment = require('moment');
 
 class HomeController extends Controller {
   async index() {
-    const ctx = this;
+    const { ctx, service } = this;
     const { query } = ctx;
     const { keyword, sort, brand, sku, beginDateStr, endDateStr } = query;
     if (!keyword || !sort) {
@@ -18,7 +18,7 @@ class HomeController extends Controller {
       beginDate = moment(beginDateStr);
     }
     if (!beginDate || !beginDate.isValid()) {
-      beginDate = moment().subtract(12, 'hours');
+      beginDate = moment().subtract(24, 'hours');
     }
     // 结束时间，默认为当前时间
     let endDate = moment(endDateStr);
@@ -30,7 +30,7 @@ class HomeController extends Controller {
     let result = [];
     if (diff > 0) {
       for (let i = 0; i < diff; i++) {
-        let list = await ctx.service.ranks.list(beginDate.add(1, 'hours').toDate(), keyword, sort, 1000);
+        let list = await service.ranks.list(beginDate.add(1, 'hours').toDate(), keyword, sort, 1000);
         if (brand) {
           list = list.filter((item) => {
             return item && item.title && item.title.includes(brand);
