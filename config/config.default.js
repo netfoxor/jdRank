@@ -14,5 +14,10 @@ module.exports = appInfo => {
     pageSize: 10,
   };
 
+  config.static = {
+    prefix: '/',
+    dir: './app/public',
+  };
+
   return config;
 };

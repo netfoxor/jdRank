@@ -9,7 +9,7 @@ class HomeController extends Controller {
     const { query } = ctx;
     const { keyword, sort, brand, sku, beginDateStr, endDateStr } = query;
     if (!keyword || !sort) {
-      ctx.body = '非法参数';
+      ctx.status = 501;
       return;
     }
     // 开始时间，默认为12小时前
@@ -28,9 +28,14 @@ class HomeController extends Controller {
     // 计算时间差，循环请求
     const diff = endDate.diff(beginDate, 'hours');
     let result = [];
+    const skuIds = [];
+    const series = [];
+    let xAxis = [];
     if (diff > 0) {
+      let currentDate = moment(beginDate);
       for (let i = 0; i < diff; i++) {
-        let list = await service.ranks.list(beginDate.add(1, 'hours').toDate(), keyword, sort, 1000);
+        currentDate.add(1, 'hours');
+        let list = await service.ranks.list(currentDate.toDate(), keyword, sort, 1000);
         if (brand) {
           list = list.filter((item) => {
             return item && item.title && item.title.includes(brand);
@@ -41,10 +46,37 @@ class HomeController extends Controller {
             return item && item.skuId && item.skuId === sku;
           });
         }
+        //添加时间
+        list.map(item => {
+          if (!item.time) {
+            item.time = moment(item.id, 'YYYYMMDDHH').toDate();
+          }
+        });
         result = result.concat(list);
+        xAxis.push(currentDate.format('YYYYMMDDHH'));
       }
+      // 取出组key
+      result.map((item) => {
+        if (!skuIds.includes(item.skuId)) {
+          skuIds.push(item.skuId);
+        }
+      });
+      // 根据时间分组
+      skuIds.map(skuId => {
+        const group = { name: skuId, type: 'line', data: [] };
+        series.push(group);
+        xAxis.map(tid => {
+          let matchedItem = null;
+          result.map((item) => {
+            if (skuId === item.skuId && tid === item.id) {
+              matchedItem = item;
+            }
+          });
+          group.data.push(matchedItem ? (matchedItem.page * 10 + matchedItem.pageRank) : 1001);
+        });
+      })
     }
-    ctx.body = result;
+    ctx.body = { query: query, xAxis, legend: skuIds, series: series, data: result };
   }
 
   async taskRun() {

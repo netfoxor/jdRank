@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta http-equiv="Cache-Control" content="no-transform"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+    <title>Title</title>
+    <script src="js/echarts.js"></script>
+    <script src="js/jquery-3.3.1.js"></script>
+</head>
+<body>
+<style>
+    body {
+        width: 640px;
+    }
+
+    body, input {
+        font-size: 18px;
+    }
+
+    input {
+        border: 1px solid gray;
+        font-size: 18px;
+    }
+</style>
+<div>
+    <form class="j-search-form">
+        <div><label>搜索关键词：<input type="text" name="keyword"></label></div>
+        <div><label>品牌：<input type="text" name="brand"></label></div>
+        <div><label>榜单：<input type="text" name="sort"></label></div>
+        <div><label>SKU：<input type="text" name="sku"></label></div>
+        <div><label>开始时间：<input type="text" name="beginDateStr"></label></div>
+        <div><input class="j-request" type="button" value="请求"></div>
+    </form>
+</div>
+<div id="main" style="width: 1024px;height:600px;"></div>
+<script type="text/javascript">
+  // 基于准备好的dom，初始化echarts实例
+  var myChart = echarts.init(document.getElementById('main'));
+
+  var updateCharts = function (response) {
+    var option = {
+      title: {
+        text: 'JD排名时报表'
+      },
+      tooltip: {
+        trigger: 'axis'
+      },
+      legend: {
+        data: response.skuIds
+      },
+      dataZoom: [{
+        type: 'inside'
+      }],
+      xAxis: {
+        data: response.xAxis
+      },
+      yAxis: {
+        inverse: true,
+        min: 1
+      },
+      series: response.series
+    };
+    myChart.clear();
+    myChart.setOption(option);
+  };
+
+  $('.j-search-form input').each(function (index, item) {
+    var name = $(item).attr('name');
+    var value = localStorage.getItem('form-' + name);
+    if (name && value) {
+      $(item).val(value);
+    }
+  });
+
+  $('.j-request').on('click', function () {
+    var query = '';
+    $('.j-search-form input').each(function (index, item) {
+      var name = $(item).attr('name');
+      var value = $(item).val();
+      if (name && value) {
+        query += '&' + name + '=' + value;
+        localStorage.setItem('form-' + name, value);
+      }
+    });
+    fetch("/api?" + query)
+      .then(
+        function (response) {
+          if (response.status !== 200) {
+            console.log("存在一个问题，状态码为：" + response.status);
+            return;
+          }
+          //检查响应文本
+          response.json().then(function (data) {
+            console.log(data);
+            updateCharts(data);
+          });
+        }
+      )
+      .catch(function (err) {
+        console.log("Fetch错误:" + err);
+      });
+  });
+</script>
+</body>
+</html>
