@@ -33,7 +33,7 @@ class RanksService extends Service {
     const logDir = `${keyword}/${moment(date).format('YYYYMMDDHH')}`;
     for (let i = 0; i < Math.ceil(count / 10); i++) {
       const page = i + 1;
-      const file = `./data/logs/${logDir}/${keyword}-${sort}-${id}-${page}.json`;
+      const file = `${ctx.config.dataPath}data/logs/${logDir}/${keyword}-${sort}-${id}-${page}.json`;
       let data = this.readLog(file);
       // 迁移数据
       if (!data) {

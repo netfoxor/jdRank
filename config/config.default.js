@@ -14,6 +14,9 @@ module.exports = appInfo => {
     pageSize: 10,
   };
 
+  //数据目录
+  config.dataPath = './';
+
   config.static = {
     prefix: '/',
     dir: './app/public',
