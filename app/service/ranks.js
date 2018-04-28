@@ -18,10 +18,13 @@ class RanksService extends Service {
       console.log('get db...', filter);
       return result;
     }
-    // 请求接口数据并返回
-    console.log('get api...', filter);
-    result = await this.getAipData(filter, count, date);
-    return result;
+    // 在当前小时内，请求接口数据并返回
+    if (moment(new Date()).format('YYYYMMDDHH') === id) {
+      console.log('get api...', filter);
+      result = await this.getAipData(filter, count, date);
+      return result;
+    }
+    return [];
   }
 
   async getAipData(filter, count = 1000, date = new Date()) {
@@ -34,18 +37,19 @@ class RanksService extends Service {
       const file = `./data/logs/${logDir}/${keyword}-${sort}-${id}-${page}.json`;
       let data = this.readLog(file);
       if (!data) {
-        const response = await this.ctx.curl(`${serverUrl}/ware/searchList.action`, {
-          method: 'POST',
-          data: {
-            _format_: 'json',
-            sort: sort,
-            page: page,
-            keyword: keyword
-          },
-          dataType: 'json',
-        });
-        data = response.data;
+        const url = `${serverUrl}/ware/searchList.action`;
+        const params = {
+          _format_: 'json',
+          sort: sort,
+          page: page,
+          keyword: keyword
+        };
+        data = await this.request(url, params);
         // 将解新后日志写入文件
+        if (!data) {
+          console.log('获取数据失败，跳过', url, JSON.stringify(params));
+          continue;
+        }
         this.writeLog(file, data);
       }
       // 解析出需要的内容
@@ -97,6 +101,29 @@ class RanksService extends Service {
       const content = fs.readFileSync(fileStr, 'utf-8');
       if (content) return JSON.parse(content);
     }
+  }
+
+  async request(url, data, retryTimes = 1) {
+    if (retryTimes > 3) {
+      return null;
+    }
+    if (retryTimes > 1) {
+      console.log('重试中...', url, JSON.stringify(data), retryTimes);
+    }
+    let response = null;
+    try {
+      response = await this.ctx.curl(url, {
+        method: 'POST',
+        data: data,
+        dataType: 'json',
+      });
+    } catch (e) {
+      console.log('请求出错了', e);
+    }
+    if (!response || response.status !== 200) {
+      return await this.request(url, data, ++retryTimes);
+    }
+    return response.data;
   }
 
   writeLog(fileStr, data) {
