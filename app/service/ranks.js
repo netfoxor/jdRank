@@ -78,19 +78,22 @@ class RanksService extends Service {
     const result = [];
     for (let i = 0; i < originList.length; i++) {
       const item = originList[i];
+      // db查寻
+      const dbFilter = Object.assign({}, { page: item.page, pageRank: item.pageRank }, filter);
       // 输出结果用
-      const a = {
-        page: item.page,
-        pageRank: item.pageRank,
+      const dbResult = {
         skuId: item.wareId,
         title: item.wname,
         totalCount: Number(item.totalCount),
         imageUrl: item.imageurl,
         price: Number(item.jdPrice),
       };
-      const b = Object.assign({}, a, filter);
-      result.push(b);
-      await this.app.mysql.insert('jd_rank', b);
+      const dbItem = Object.assign({}, dbResult, dbFilter);
+      result.push(dbItem);
+      const isFind = await this.app.mysql.get('jd_rank', dbFilter);
+      if (!isFind) {
+        await this.app.mysql.insert('jd_rank', dbItem);
+      }
     }
     return result;
   }
