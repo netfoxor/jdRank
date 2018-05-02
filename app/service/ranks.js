@@ -11,7 +11,7 @@ class RanksService extends Service {
     // 从db或接口读取数据
     const id = moment(date).format('YYYYMMDDHH');
     const filter = { id, keyword, sort };
-    let result = await this.app.mysql.select('jd_rank', filter);
+    let result = await this.app.mysql.select('jd_rank', { where: filter });
     // 如果db有数据，直接返回
     if (result && result.length >= 990) {
       ctx.logger.info(`get db, filter:${JSON.stringify(filter)}`);
