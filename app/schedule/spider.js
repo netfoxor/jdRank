@@ -16,8 +16,8 @@ class Spider extends Subscription {
     const keywords = ['女童连衣裙', '女童连衣裙夏', '女童连衣裙夏装', '女童裙子', '儿童连衣裙', '儿童裙子', '亲子装', '亲子套装', '全家装', '亲子装全家装', '亲子装全家装 夏装'];
     for (let i = 0; i < keywords.length; i++) {
       const keyword = keywords[i];
-      await this.ctx.service.ranks.list(now, keyword, 0, 1000);
-      await this.ctx.service.ranks.list(now, keyword, 1, 1000);
+      await this.ctx.service.ranks.list(now, keyword, 0, 1000, true);
+      await this.ctx.service.ranks.list(now, keyword, 1, 1000, true);
     }
   }
 }

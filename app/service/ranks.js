@@ -6,26 +6,23 @@ const moment = require('moment');
 const FileSync = require('lowdb/adapters/FileSync');
 
 class RanksService extends Service {
-  async list(date, keyword = '', sort = 0, count = 1000) {
+  async list(date, keyword = '', sort = 0, count = 1000, isSpider = false) {
     const ctx = this;
     // 从db或接口读取数据
     const id = moment(date).format('YYYYMMDDHH');
     const filter = { id, keyword, sort };
-    let result;
-    // // 读取db
-    // const db = this.getDB();
-    // result = db.get('rankItem').filter(filter).value();
-    // // 如果db有数据，直接返回
-    // if (result && result.length > 0) {
-    //   ctx.logger.info(`get db, filter:${JSON.stringify(filter)}`);
-    //   return result;
-    // }
-    ctx.logger.info(`get api or log file, filter:${JSON.stringify(filter)}`);
-    result = await this.getAipData(filter, count, date);
+    let result = await this.app.mysql.select('jd_rank', filter);
+    // 如果db有数据，直接返回
+    if (result && result.length >= 990) {
+      ctx.logger.info(`get db, filter:${JSON.stringify(filter)}`);
+      return result;
+    }
+    ctx.logger.info(`spider data, filter:${JSON.stringify(filter)}`);
+    result = await this.getAipData(filter, count, date, isSpider);
     return result;
   }
 
-  async getAipData(filter, count = 1000, date = new Date()) {
+  async getAipData(filter, count = 1000, date = new Date(), isSpider) {
     const ctx = this;
     const { sort, keyword, id } = filter;
     const { serverUrl } = this.config.jd;
@@ -45,7 +42,7 @@ class RanksService extends Service {
         }
       }
       // 本地没有取得数据，需要请求api
-      if (!data) {
+      if (!data && isSpider) {
         // 如果非当前时间段内，则跳过
         if (moment(new Date()).format('YYYYMMDDHH') !== id) {
           continue;
@@ -77,34 +74,25 @@ class RanksService extends Service {
       });
       ctx.logger.info(`page:${page}, originList.length:${originList.length}`);
     }
-    // 取得db
-    const db = this.getDB();
     // 对原始数据进行处理，拿到最终想要的结果，写入db并返回
     const result = [];
-    originList.map((item) => {
+    for (let i = 0; i < originList.length; i++) {
+      const item = originList[i];
       // 输出结果用
       const a = {
         page: item.page,
         pageRank: item.pageRank,
         skuId: item.wareId,
         title: item.wname,
-        totalCount: item.totalCount,
+        totalCount: Number(item.totalCount),
         imageUrl: item.imageurl,
-        price: item.jdPrice
+        price: Number(item.jdPrice),
       };
       const b = Object.assign({}, a, filter);
       result.push(b);
-      // db.get('rankItem').push(b).write();
-    });
+      await this.app.mysql.insert('jd_rank', b);
+    }
     return result;
-  }
-
-  getDB() {
-    this.createFile('./data/db.json');
-    const adapter = new FileSync('./data/db.json');
-    const db = low(adapter);
-    db.defaults({ rankItem: [] }).write();
-    return db;
   }
 
   readLog(fileStr) {
