@@ -10,10 +10,6 @@
 </head>
 <body>
 <style>
-    body {
-        width: 640px;
-    }
-
     body, input {
         font-size: 18px;
     }
@@ -24,13 +20,16 @@
     }
 
     .chart {
+        display: inline-block;
+        width: 600px;
         height: 300px;
+        padding: 5px;
+        border: 1px solid gray;
     }
 </style>
 <div>
     <form class="j-search-form">
-        <div><label>品牌：<input type="text" name="brand"></label></div>
-        <div><label>榜单：<input type="text" name="sort"></label></div>
+        <div><label>标题关键字：<input type="text" name="brand"></label></div>
         <div><label>开始时间：<input type="text" name="beginDateStr"></label></div>
         <div><input class="j-request" type="button" value="刷新"></div>
     </form>
@@ -51,26 +50,28 @@
     });
     const keywords = ['女童连衣裙', '女童连衣裙夏', '女童连衣裙夏装', '女童裙子', '儿童连衣裙', '儿童裙子', '亲子装', '亲子套装', '全家装', '亲子装全家装', '亲子装全家装 夏装'];
     keywords.map(function (keyword) {
-      var chartName = '报表-' + keyword;
-      getChartInstanse(chartName);
-      fetch("/api?" + query + "&keyword=" + keyword)
-        .then(
-          function (response) {
-            if (response.status !== 200) {
-              console.log("存在一个问题，状态码为：" + response.status);
-              return;
+      ['综合榜', '销量榜'].map(function (sortName, index) {
+        var chartName = '报表-' + keyword + '-' + sortName;
+        getChartInstanse(chartName);
+        fetch("/api?" + query + "&keyword=" + keyword + "&sort=" + index)
+          .then(
+            function (response) {
+              if (response.status !== 200) {
+                console.log("存在一个问题，状态码为：" + response.status);
+                return;
+              }
+              //检查响应文本
+              response.json().then(function (data) {
+                console.log(data);
+                updateCharts(chartName, data);
+              });
             }
-            //检查响应文本
-            response.json().then(function (data) {
-              console.log(data);
-              updateCharts(chartName, data);
-            });
-          }
-        )
-        .catch(function (err) {
-          console.log("Fetch错误:" + err);
-        });
-    });
+          )
+          .catch(function (err) {
+            console.log("Fetch错误:" + err);
+          });
+      });
+    })
   }
 
   function updateCharts(chartName, response) {
