@@ -35,17 +35,7 @@ class HomeController extends Controller {
       let currentDate = moment(beginDate);
       for (let i = 0; i < diff; i++) {
         currentDate.add(1, 'hours');
-        let list = await service.ranks.list(currentDate.toDate(), keyword, sort, 1000);
-        if (brand) {
-          list = list.filter((item) => {
-            return item && item.title && item.title.includes(brand);
-          });
-        }
-        if (sku) {
-          list = list.filter((item) => {
-            return item && item.skuId && item.skuId === sku;
-          });
-        }
+        let list = await service.ranks.getMyRank(currentDate.toDate(), brand, keyword, sort);
         //添加时间
         list.map(item => {
           if (!item.time) {
@@ -66,10 +56,10 @@ class HomeController extends Controller {
         const group = { name: skuId, type: 'line', data: [] };
         let lastRank = 1001;
         series.push(group);
-        xAxis.map(tid => {
+        xAxis.map(dts => {
           let matchedItem = null;
           result.map((item) => {
-            if (skuId === item.skuId && tid === item.id) {
+            if (skuId === item.skuId && dts === item.dts) {
               matchedItem = item;
             }
           });
@@ -81,11 +71,39 @@ class HomeController extends Controller {
     ctx.body = { query: query, xAxis, legend: skuIds, series: series, data: result };
   }
 
+  async getKeywords() {
+    const { ctx, service } = this;
+    ctx.body = { keywords: await service.ranks.getKeywords() };
+  }
+
   async taskRun() {
-    const ctx = this;
-    ctx.app.runSchedule('spider');
-    ctx.body = 'success';
-    ctx.status = 200;
+    const { ctx } = this;
+    const { task } = ctx.query;
+    ctx.app.runSchedule(task);
+    ctx.body = { success: true };
+  }
+
+  async getMyRankTask() {
+    const { ctx, service } = this;
+    const { beginDateStr } = ctx.query;
+    let beginDate = null;
+    if (beginDateStr) {
+      beginDate = moment(beginDateStr);
+    }
+    if (!beginDate || !beginDate.isValid()) {
+      beginDate = moment().subtract(24, 'hours');
+    }
+    const diff = moment().diff(beginDate, 'hours');
+    const keywords = await this.ctx.service.ranks.getKeywords();
+    const currentDate = moment(beginDate);
+    for (let i = 0; i <= diff; i++) {
+      for (let j = 0; j < keywords.length; j++) {
+        const keyword = keywords[j];
+        await service.ranks.getMyRank(currentDate, '派雅度', keyword, 0, true);
+        await service.ranks.getMyRank(currentDate, '派雅度', keyword, 1, true);
+      }
+      currentDate.add(1, 'hours');
+    }
   }
 }
 
