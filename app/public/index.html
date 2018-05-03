@@ -7,24 +7,43 @@
     <title>Title</title>
     <script src="js/echarts.js"></script>
     <script src="js/jquery-3.3.1.js"></script>
+    <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.16/css/jquery.dataTables.min.css">
 </head>
 <body>
 <style>
     body, input {
-        font-size: 18px;
+        font-size: 12px;
+    }
+
+    form > div {
+        padding: 5px;
+        display: inline-block;
+        height: 22px;
     }
 
     input {
         border: 1px solid gray;
-        font-size: 18px;
+        font-size: 12px;
     }
 
-    .chart {
+    .item {
         display: inline-block;
-        width: 600px;
-        height: 300px;
-        padding: 5px;
         border: 1px solid gray;
+        padding: 5px;
+        margin: 5px;
+        width: 600px;
+    }
+
+    .item .chart {
+        display: inline-block;
+        width: 100%;
+        height: 300px;
+        padding-bottom: 5px;
+    }
+
+    .item .table {
+        border: 1px solid black;
     }
 </style>
 <div>
@@ -37,6 +56,7 @@
 <script type="text/javascript">
 
   var CHARTS = {};
+  var TABLES = {};
 
   function refreshCharts() {
     var query = '';
@@ -49,10 +69,10 @@
       }
     });
     const keywords = ['女童连衣裙', '女童连衣裙夏', '女童连衣裙夏装', '女童裙子', '儿童连衣裙', '儿童裙子', '亲子装', '亲子套装', '全家装', '亲子装全家装', '亲子装全家装 夏装'];
+    // const keywords = ['女童连衣裙'];
     keywords.map(function (keyword) {
       ['综合榜', '销量榜'].map(function (sortName, index) {
-        var chartName = '报表-' + keyword + '-' + sortName;
-        getChartInstanse(chartName);
+        var name = '报表-' + keyword + '-' + sortName;
         fetch("/api?" + query + "&keyword=" + keyword + "&sort=" + index)
           .then(
             function (response) {
@@ -63,7 +83,12 @@
               //检查响应文本
               response.json().then(function (data) {
                 console.log(data);
-                updateCharts(chartName, data);
+                var $item = $(`#${name}`);
+                if ($item.length === 0) {
+                  $item = $(`<div id="${name}" class="item">`).appendTo('body');
+                }
+                updateChart(name, data, $item);
+                updateTable(name, data, $item);
               });
             }
           )
@@ -74,27 +99,27 @@
     })
   }
 
-  function updateCharts(chartName, response) {
-    var myChart = getChartInstanse(chartName);
+  function updateChart(chartName, response, $parent) {
+    var myChart = getChartInstance(chartName, $parent);
     var option = {
       title: {
-        text: chartName
+        left: 'center',
+        text: chartName,
       },
       tooltip: {
         trigger: 'axis'
       },
       legend: {
-        data: response.skuIds
+        bottom: 0,
+        data: response.skuIds,
       },
-      dataZoom: [{
-        type: 'inside'
-      }],
       xAxis: {
         data: response.xAxis
       },
       yAxis: {
         inverse: true,
-        min: 1
+        min: 1,
+        max: 1001
       },
       series: response.series
     };
@@ -102,14 +127,74 @@
     myChart.setOption(option);
   }
 
-  function getChartInstanse(chartName) {
-    if (!CHARTS[chartName]) {
+  function getChartInstance(name, $parent) {
+    if (!CHARTS[name]) {
       var $div = $('<div class="chart">');
-      $('body').append($div);
+      $parent.append($div);
       var chart = echarts.init($div[0]);
-      CHARTS[chartName] = chart;
+      CHARTS[name] = chart;
     }
-    return CHARTS[chartName];
+    return CHARTS[name];
+  }
+
+  function updateTable(tableName, response, $parent) {
+    var myTable = getTableInstance(tableName, $parent);
+    var groupData = {};
+    response.data.map(function (item) {
+      item.rank = (item.page - 1) * 10 + item.pageRank;
+      var old = groupData[item.skuId];
+      if (!old) {
+        item.diff = 0;
+      } else if (old.rank !== item.rank) {
+        item.diff = item.rank - old.rank;
+      } else {
+        item.diff = old.diff;
+      }
+      groupData[item.skuId] = item;
+    });
+    var dataSet = [];
+    for (var key in groupData) {
+      var item = groupData[key];
+      dataSet.push(item);
+    }
+    myTable.DataTable({
+      retrieve: true,
+      paging: false,
+      searching: false,
+      data: dataSet,
+      columns: [
+        {
+          title: "图片",
+          data: function (row) {
+            return `<img src="${row.imageUrl}" width="60" height="60">`;
+          },
+        },
+        {
+          title: "SKU",
+          data: "skuId",
+        },
+        {
+          title: "标题",
+          data: function (row) {
+            return `<a href="http://item.jd.com/${row.skuId}.html" target="_blank">${row.title}</a>`;
+          },
+        },
+        {
+          title: "排名",
+          data: function (row) {
+            return `第${row.page}页 第${row.pageRank}个 <span class="rankUpDownIcon">${row.diff > 0 ? '下降' : '上升'}</span>${Math.abs(row.diff)}名`;
+          },
+        },
+      ],
+    });
+  }
+
+  function getTableInstance(name, $parent) {
+    if (!TABLES[name]) {
+      var $div = $('<table class="display" width="100%"></table>').appendTo($('<div class="table"/>').appendTo($parent));
+      TABLES[name] = $div;
+    }
+    return TABLES[name];
   }
 
   $('.j-search-form input').each(function (index, item) {
