@@ -73,6 +73,10 @@
     keywords.map(function (keyword) {
       ['综合榜', '销量榜'].map(function (sortName, index) {
         var name = '报表-' + keyword + '-' + sortName;
+        var $item = $(`#${name}`);
+        if ($item.length === 0) {
+          $item = $(`<div id="${name}" class="item">`).appendTo('body');
+        }
         fetch("/api?" + query + "&keyword=" + keyword + "&sort=" + index)
           .then(
             function (response) {
@@ -83,10 +87,6 @@
               //检查响应文本
               response.json().then(function (data) {
                 console.log(data);
-                var $item = $(`#${name}`);
-                if ($item.length === 0) {
-                  $item = $(`<div id="${name}" class="item">`).appendTo('body');
-                }
                 updateChart(name, data, $item);
                 updateTable(name, data, $item);
               });
