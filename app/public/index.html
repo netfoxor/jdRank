@@ -32,7 +32,7 @@
         border: 1px solid gray;
         padding: 5px;
         margin: 5px;
-        width: 600px;
+        width: 700px;
     }
 
     .item .chart {
@@ -178,13 +178,19 @@
         {
           title: "标题",
           data: function (row) {
-            return `<a href="http://item.jd.com/${row.skuId}.html" target="_blank">${row.title}</a>`;
+            return `<a href="http://item.jd.com/${row.skuId}.html" target="_blank" title="${row.title}">${row.title.substr(0, 25)}...</a>`;
           },
         },
         {
           title: "排名",
           data: function (row) {
-            return `第${row.page}页 第${row.pageRank}个 <span class="rankUpDownIcon">${row.diff > 0 ? '下降' : '上升'}</span>${Math.abs(row.diff)}名`;
+            return row.rank;
+          },
+        },
+        {
+          title: "升降",
+          data: function (row) {
+            return row.diff > 0 ? `<span style="color:green;">↓${row.diff}</span>` : row.diff < 0 ? `<span style="color:red;">↑${Math.abs(row.diff)}</span>` : '-';
           },
         },
       ],
