@@ -54,7 +54,7 @@ class HomeController extends Controller {
       // 根据时间分组
       skuIds.map(skuId => {
         const group = { name: skuId, type: 'line', data: [] };
-        let lastRank = 1001;
+        const noRankValue = 1000;
         series.push(group);
         xAxis.map(dts => {
           let matchedItem = null;
@@ -63,8 +63,8 @@ class HomeController extends Controller {
               matchedItem = item;
             }
           });
-          lastRank = matchedItem ? ((matchedItem.page - 1) * 10 + matchedItem.pageRank) : lastRank;
-          group.data.push(lastRank);
+          const rank = matchedItem ? ((matchedItem.page - 1) * 10 + matchedItem.pageRank) : noRankValue;
+          group.data.push(rank);
         });
       })
     }
