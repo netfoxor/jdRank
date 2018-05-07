@@ -8,7 +8,7 @@ const FileSync = require('lowdb/adapters/FileSync');
 class RanksService extends Service {
 
   async getKeywords() {
-    let result = await this.app.mysql.select('jd_keywords');
+    let result = await this.app.mysql.select('jd_keywords', { orders: ['sort'] });
     const keywords = [];
     result.map((item) => {
       keywords.push(item.keyword);
