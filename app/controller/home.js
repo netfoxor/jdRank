@@ -54,7 +54,7 @@ class HomeController extends Controller {
       // 根据时间分组
       skuIds.map(skuId => {
         const group = { name: skuId, type: 'line', data: [] };
-        const noRankValue = 1000;
+        const noRankValue = '';
         series.push(group);
         xAxis.map(dts => {
           let matchedItem = null;
@@ -68,7 +68,7 @@ class HomeController extends Controller {
         });
       })
     }
-    ctx.body = { query: query, xAxis, legend: skuIds, series: series, data: result };
+    ctx.body = { query, xAxis, legend: skuIds, series, data: result };
   }
 
   async getKeywords() {

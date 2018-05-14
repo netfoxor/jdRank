@@ -15,7 +15,7 @@ module.exports = appInfo => {
   };
 
   //数据目录
-  config.dataPath = './';
+  config.dataPath = './data';
 
   config.static = {
     prefix: '/',

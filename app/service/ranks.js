@@ -72,7 +72,7 @@ class RanksService extends Service {
     const logDir = `${keyword}/${moment(date).format('YYYYMMDDHH')}`;
     for (let i = 0; i < Math.ceil(count / 10); i++) {
       const page = i + 1;
-      const file = `${config.dataPath}data/logs/${logDir}/${keyword}-${sort}-${dts}-${page}.json`;
+      const file = `${config.dataPath}logs/${logDir}/${keyword}-${sort}-${dts}-${page}.json`;
       let data = this.readFileCache(file);
       // 本地没有取得数据，需要请求api
       if (!data && isSchedule) {
