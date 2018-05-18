@@ -26,11 +26,14 @@ class RanksService extends Service {
 
   async fromRankToMyRank(date, brand = '', keyword = '', sort = 0) {
     const { ctx } = this;
-    const result = this.getMyRank(date, brand, keyword, sort);
+    if (!brand || !keyword) return;
+    const dts = moment(date).format('YYYYMMDDHH');
+    const filter = { dts, keyword, brand, sort };
+    const result = await this.getMyRank(date, brand, keyword, sort);
     if (result && result.length !== 0) {
       return;
     }
-    const list = await this.list(date, keyword, sort, 1000);
+    const list = await this.list(date, keyword, sort);
     if (list && list.length === 0) {
       return;
     }
@@ -62,7 +65,7 @@ class RanksService extends Service {
   }
 
 
-  async list(date, keyword = '', sort = 0, count = 1000) {
+  async list(date, keyword = '', sort = 0) {
     const { ctx } = this;
     // 从db或接口读取数据
     const dts = moment(date).format('YYYYMMDDHH');
@@ -92,7 +95,7 @@ class RanksService extends Service {
         page: page,
         keyword: keyword
       };
-      const pageData = await this.request(url, params);
+      const pageData = await ctx.fetchData(url, params, 3);
       // 将解新后日志写入文件
       if (!pageData) {
         ctx.logger.warn(`获取数据失败，跳过, url:${url}, data:${JSON.stringify(pageData)}`);
@@ -150,30 +153,6 @@ class RanksService extends Service {
       }
     }
     return [];
-  }
-
-  async request(url, data, retryTimes = 1) {
-    const ctx = this;
-    if (retryTimes > 3) {
-      return null;
-    }
-    if (retryTimes > 1) {
-      ctx.logger.warn(`重试中, url:${url}, data:${JSON.stringify(data)}, retryTimes:${retryTimes}`);
-    }
-    let response = null;
-    try {
-      response = await this.ctx.curl(url, {
-        method: 'POST',
-        data: data,
-        dataType: 'json',
-      });
-    } catch (e) {
-      ctx.logger.error(new Error(`请求出错了, url:${url}, data:${JSON.stringify(data)}, retryTimes:${retryTimes}`));
-    }
-    if (!response || response.status !== 200) {
-      return await this.request(url, data, ++retryTimes);
-    }
-    return response.data;
   }
 
 }

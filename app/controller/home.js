@@ -94,7 +94,7 @@ class HomeController extends Controller {
       beginDate = moment().subtract(24, 'hours');
     }
     const diff = moment().diff(beginDate, 'hours');
-    const keywords = await this.ctx.service.ranks.getKeywords();
+    const keywords = await service.ranks.getKeywords();
     const currentDate = moment(beginDate);
     for (let i = 0; i <= diff; i++) {
       for (let j = 0; j < keywords.length; j++) {
@@ -105,6 +105,7 @@ class HomeController extends Controller {
       }
       currentDate.add(1, 'hours');
     }
+    ctx.body = 'ok';
   }
 }
 
