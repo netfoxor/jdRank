@@ -99,8 +99,9 @@ class HomeController extends Controller {
     for (let i = 0; i <= diff; i++) {
       for (let j = 0; j < keywords.length; j++) {
         const keyword = keywords[j];
-        await service.ranks.getMyRank(currentDate, '派雅度', keyword, 0, true);
-        await service.ranks.getMyRank(currentDate, '派雅度', keyword, 1, true);
+        for (let sort = 0; sort <= 1; sort++) {
+          await service.ranks.fromRankToMyRank(currentDate, '派雅度', keyword, sort);
+        }
       }
       currentDate.add(1, 'hours');
     }
