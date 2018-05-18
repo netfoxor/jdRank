@@ -21,8 +21,8 @@ class RanksService extends Service {
     if (!brand || !keyword) return;
     const dts = moment(date).format('YYYYMMDDHH');
     const filter = { dts, keyword, brand, sort };
-    ctx.logger.info(`[getMyRank] filter:${JSON.stringify(filter)}`);
     const result = await this.app.mysql.select('jd_myRank', { where: filter });
+    ctx.logger.info(`get my rank by db, filter:${JSON.stringify(filter)}, count:${result.length}`);
     if (result && result.length > 0) {
       return result;
     }
@@ -45,7 +45,7 @@ class RanksService extends Service {
         });
         return { success: true };
       }, ctx);
-      ctx.logger.info(`my rank inserted ${insertItems.length} records, result:${insertResult.success}, filter:${JSON.stringify(filter)}`);
+      ctx.logger.info(`set my rank into db, success:${insertResult.success}, filter:${JSON.stringify(filter)}, count:${insertItems.length}`);
     }
     return insertItems;
   }
@@ -58,24 +58,20 @@ class RanksService extends Service {
     const result = await this.app.mysql.select('jd_rank', { where: filter });
     // 如果db有数据，直接返回
     if (result && result.length !== 0) {
-      ctx.logger.info(`get rank by db, result:${result.length} filter:${JSON.stringify(filter)}`);
+      ctx.logger.info(`get rank by db, filter:${JSON.stringify(filter)}, count:${result.length}`);
       return result;
     }
     return await this.getAipData(filter, count, date, isSchedule);
   }
 
   async getAipData(filter, count = 1000, date = new Date(), isSchedule) {
-    const { ctx, config } = this;
+    const { ctx } = this;
     const { sort, keyword, dts } = filter;
     const { serverUrl } = this.config.jd;
     const fullList = [];
-    const logDir = `${keyword}/${moment(date).format('YYYYMMDDHH')}`;
     for (let i = 0; i < Math.ceil(count / 10); i++) {
       const page = i + 1;
-      const file = `${config.dataPath}logs/${logDir}/${keyword}-${sort}-${dts}-${page}.json`;
-      let data = this.readFileCache(file);
-      // 本地没有取得数据，需要请求api
-      if (!data && isSchedule) {
+      if (isSchedule) {
         // 如果非当前时间段内，则跳过
         if (moment(new Date()).format('YYYYMMDDHH') !== dts) {
           continue;
@@ -87,27 +83,25 @@ class RanksService extends Service {
           page: page,
           keyword: keyword
         };
-        data = await this.request(url, params);
+        const pageData = await this.request(url, params);
         // 将解新后日志写入文件
-        if (!data) {
-          ctx.logger.warn(`获取数据失败，跳过, url:${url}, data:${JSON.stringify(data)}`);
+        if (!pageData) {
+          ctx.logger.warn(`获取数据失败，跳过, url:${url}, data:${JSON.stringify(pageData)}`);
           continue;
         }
-        this.writeFileCache(file, data);
+        // 解析出需要的内容
+        const pageList = this.parseList(pageData);
+        let rank = 1;
+        pageList.map((item) => {
+          // 有曝光url的为广告，排除
+          if (!item.exposalUrl) {
+            fullList.push(Object.assign(item, { page: page, pageRank: rank }));
+            rank++;
+          }
+        });
       }
-      // 解析出需要的内容
-      const list = this.parseList(data);
-      let rank = 1;
-      list.map((item) => {
-        // 有曝光url的为广告，排除
-        if (!item.exposalUrl) {
-          fullList.push(Object.assign(item, { page: page, pageRank: rank }));
-          rank++;
-        }
-      });
-      // ctx.logger.info(`current page:${page}, current fullList length:${fullList.length}`);
     }
-    ctx.logger.info(`get rank by api, result:${fullList.length}, filter:${JSON.stringify(filter)}`);
+    ctx.logger.info(`get rank by api, filter:${JSON.stringify(filter)}, count:${fullList.length}`);
     // 对原始数据进行处理，拿到最终想要的结果
     const insertItems = [];
     for (let i = 0; i < fullList.length; i++) {
@@ -136,7 +130,7 @@ class RanksService extends Service {
         });
         return { success: true };
       }, ctx);
-      ctx.logger.info(`rank inserted ${insertResult.length} records, result:${insertResult.success}, filter:${JSON.stringify(filter)}`);
+      ctx.logger.info(`set rank into db, success:${insertResult.success}, filter:${JSON.stringify(filter)}, count:${insertItems.length}`);
     }
     return insertItems;
   }
@@ -175,39 +169,6 @@ class RanksService extends Service {
     return response.data;
   }
 
-  readFileCache(fileStr) {
-    const absFilePath = path.resolve(fileStr);
-    if (fs.existsSync(absFilePath)) {
-      const content = fs.readFileSync(fileStr, 'utf-8');
-      if (content) return JSON.parse(content);
-    }
-  }
-
-  writeFileCache(fileStr, data) {
-    fs.writeFileSync(this.createFile(fileStr), JSON.stringify(data));
-  }
-
-  createFile(fileStr) {
-    const absFilePath = path.resolve(fileStr);
-    const dir = path.dirname(absFilePath);
-    this.mkdirsSync(dir);
-    if (!fs.existsSync(absFilePath)) {
-      fs.writeFileSync(absFilePath, '');
-    }
-    return absFilePath;
-  }
-
-  //递归创建目录 同步方法
-  mkdirsSync(dirname) {
-    if (fs.existsSync(dirname)) {
-      return true;
-    } else {
-      if (this.mkdirsSync(path.dirname(dirname))) {
-        fs.mkdirSync(dirname);
-        return true;
-      }
-    }
-  }
 }
 
 module.exports = RanksService;
