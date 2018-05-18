@@ -1,9 +1,5 @@
 const Service = require('egg').Service;
-const fs = require('fs');
-const path = require('path');
-const low = require('lowdb');
 const moment = require('moment');
-const FileSync = require('lowdb/adapters/FileSync');
 
 class RanksService extends Service {
 
