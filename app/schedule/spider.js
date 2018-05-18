@@ -20,8 +20,9 @@ class Spider extends Subscription {
     for (let i = 0; i < keywords.length; i++) {
       const keyword = keywords[i];
       const dts = moment(now).format('YYYYMMDDHH');
-      await this.ctx.service.ranks.spiderToDB({ keyword, dts, sort: 0 }, 1000);
-      await this.ctx.service.ranks.spiderToDB({ keyword, dts, sort: 1 }, 1000);
+      for (let sort = 0; sort <= 1; sort++) {
+        await this.ctx.service.ranks.spiderToDB({ keyword, dts, sort }, 1000);
+      }
     }
     ctx.logger.info('spider task finished...');
   }
