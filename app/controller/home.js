@@ -64,7 +64,7 @@ class HomeController extends Controller {
             }
           });
           const rank = matchedItem ? ((matchedItem.page - 1) * 10 + matchedItem.pageRank) : noRankValue;
-          group.data.push(rank);
+          group.data.push(rank <= 0 ? '' : rank);
         });
       })
     }
