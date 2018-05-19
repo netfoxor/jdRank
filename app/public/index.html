@@ -176,7 +176,7 @@
         {
           title: "标题",
           data: function (row) {
-            if (row.skuId === 0) {
+            if (row.skuId === '0') {
               return '';
             }
             return `<a href="http://item.jd.com/${row.skuId}.html" target="_blank" title="${row.title}">${row.title.substr(0, 25)}...</a>`;
